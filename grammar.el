@@ -246,6 +246,104 @@ For example, if STRING is \"This person have two name.\", list
     (overlay-put overlay 'grammar-overlay t)
     (overlay-put overlay 'face face)))
 
+(defun get-hash-keys (hashtable)
+  "Return all keys in hashtable."
+  (let (allkeys)
+    (maphash (lambda (kk vv) (setq allkeys (cons kk allkeys))) hashtable)
+    allkeys))
+
+(defun get-hash-values (hashtable)
+  "Return all values in HASHTABLE."
+  (let (allvals)
+    (maphash (lambda (kk vv) (setq allvals (cons vv allvals))) hashtable)
+    allvals))
+
+(defun hash-exists-p (key table)
+  (let ((novalue (make-symbol "<nil>")))
+    (not (equal (gethash key table novalue) novalue))))
+
+(defun hash-value-exists-p (value table)
+  (let ((key nil))
+    (maphash
+     (lambda (kk vv) 
+       (if (equal vv value) 
+	   (if (equal kk nil) (setq t)
+	     (setq key kk)) 
+	 nil))
+     table)
+    key))
+
+(defun my-replace-string (from to s &optional result)
+  (let
+      (;(s ;(substring str 0))
+       (n (string-match from s)))
+    (if n
+	(let ((m (match-end 0)))
+	  (my-replace-string
+	   from to (substring s m)
+	   (cons to (cons (substring s 0 n) result))
+	   ))
+      (if result
+	  (mapconcat #'identity (reverse (cons s result)) "")
+	s))))
+
+(defun replace-string-all-hash-key-value (tbl s) 
+  (maphash 
+   (lambda (key value)
+     (setq s (my-replace-string key value s)))
+   tbl)
+  s
+  )
+
+
+(defun make-new-num-str-key-with-length (table n str)
+  (let ((key0 (hash-value-exists-p str table)))
+    (if key0 key0      
+      (let ((key
+	     (substring 
+	      (format (concat "%0" (format "%d" n) "d") (random))
+	      (- n) )))
+	(if (hash-exists-p key table)
+	    (make-new-num-str-key-with-length table n)
+	  key)))))
+
+(defun replace-latex-command-in-string-with-replace-tabel (str tbl)
+  ;(when tbl (setq tbl (make-hash-table :test #'equal)))
+  (let* 
+      ((s (substring str 0))
+       (n (string-match  "\\\\\\(cite\\|label\\|ref\\){[^}]*}"  s)))
+    (if n
+	(let* ((m (match-end 0))
+	      (ss-o (substring s n m))
+	      (ss-r
+	       ;(make-string  (- m n ) ?3 )
+	       (make-new-num-str-key-with-length tbl (- m n ) ss-o)
+	       ))
+	  (setf (gethash ss-r tbl) ss-o)
+	  ;(message ss-o)
+	  (setf (substring s n m) ss-r)
+	  ;(message s)
+	  (let ((pre-str (substring s 0 m) )
+		(result
+		  (replace-latex-command-in-string-with-replace-tabel 
+		   (substring s m)
+		   tbl)))
+	     ;(concat pre-str result)
+	    ;(message result)
+	    (list 
+	     (concat 
+	      pre-str
+	      (car result))
+	     tbl)
+	  ))
+      (progn
+	;(message str)
+	;str
+	(list str tbl)	
+	))))
+
+
+
 (defun replace-latex-command-in-string (str)
   (let* 
       ((s (substring str 0))
@@ -295,14 +393,21 @@ For example, if STRING is \"This person have two name.\", list
 	  ))))
 
 
-(defun ginger-region-recursive (start end)
-  (let ((str (replace-latex-command-in-string (buffer-substring-no-properties start end))))
+(defun ginger-region-recursive (start0 end0 replace-table0)
+  (let ((replaced
+	 (replace-latex-command-in-string-with-replace-tabel
+	 ;(replace-latex-command-in-string 
+	  (buffer-substring-no-properties start end)
+	  replace-table0
+	  )))
+    ;(print replaced)
     (lexical-let* (;(str str) 
-		   (text str)(results nil)
+		   (text (car replaced))(results nil)
 		   ;(result-str "")
-		   (start start) (end end)
+		   (start start0) (end end0) (replace-table (cadr replaced))
 		   )
     ;(print (buffer-substring-no-properties start end))
+      ;(print text)
     (request
      ginger-end-point
      :params `((lang . "US")
@@ -334,7 +439,7 @@ For example, if STRING is \"This person have two name.\", list
                        (when (< i (length text))
                          (push (substring text i) results)))
 
-		 (print results)
+		 ;(print results)
 
 		 (let* ((result-list (reverse results))
 			(fixed-text-with-face (mapconcat 'identity (reverse results) ""))
@@ -352,28 +457,50 @@ For example, if STRING is \"This person have two name.\", list
 		   ;(print text)
 		   ;(print (buffer-substring-no-properties start end))
 		   ;(message fixed-text-with-face)
-		   (if (;string=
-			string-equal
-			fixed-text text)
-		       (print "recurcall")
+		   (when (not (;string=
+			       string-equal
+			       fixed-text text))
+		       ;(print "recurcall")
 		     ;; (print "compl")
 		     (progn
-		       (ispell-highlight-spelling-error-overlay start end t)
+		       ;(print "compl")
+		       ;(ispell-highlight-spelling-error-overlay start end t)
 		       (let ((selected-str
-			      (ido-completing-read "select:" (list fixed-text text))))
-		       ;(print selected-str)
+			      (ido-completing-read 
+			       "select:" 
+			       ;(list fixed-text text)
+			       (mapcar
+				(lambda (s)
+				  (replace-string-all-hash-key-value
+				   replace-table s))
+				(list fixed-text text))
+				   
+				;; (replace-string-all-hash-key-value
+				;;  replace-table
+				;;  fixed-text)
+				;; (replace-string-all-hash-key-value 
+				;;  replace-table
+				;;  text)
+			       )
+			       ))
+			 (print selected-str)
 			 (setf (buffer-substring start end) selected-str)
 			     ;; (completing-read "Choose one: " '("foo" "bar" "baz"))
 			      ;;(ido-completing-read "select:" (list text fixed-text))
+			 )
 		       )
 		     )
-		   ))))))))
+		   (goto-char (+ end 4))
+		   (grammar-buffer)
+
+		   )))))))
 
 
 (defun grammar-buffer ()
   "Check grammar buffer"
   (interactive)
-  (let (start end)
+  (let ((replace-table (make-hash-table :test #'equal))
+	start end)
     ;(save-excursion
       (backward-sentence)
       (setq start (point))
@@ -383,7 +510,7 @@ For example, if STRING is \"This person have two name.\", list
     ;(grammar-sentence-check-only start end)
     ;(print (buffer-substring-no-properties start end))
       ;(setf (buffer-substring start end) "tmp str")
-      (ginger-region-recursive start end)
+      (ginger-region-recursive start end replace-table)
     )
 )
 
