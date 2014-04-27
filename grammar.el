@@ -37,6 +37,12 @@
 ;; mode in the current buffer.
 ;;
 
+(require 'request) ;; https://github.com/tkf/emacs-request
+(require 'json)
+(defvar ginger-end-point
+  "http://services.gingersoftware.com/Ginger/correct/json/GingerTheText"  )
+
+
 (defgroup grammar nil
   "Grammar checking on the fly."
   :tag "Grammar"
@@ -240,9 +246,185 @@ For example, if STRING is \"This person have two name.\", list
     (overlay-put overlay 'grammar-overlay t)
     (overlay-put overlay 'face face)))
 
+(defun replace-latex-command-in-string (str)
+  (let* 
+      ((s (substring str 0))
+       (n (string-match  "\\\\\\(cite\\|label\\|ref\\){[^}]*}"  s)))
+    (if n
+	(let* ((m (match-end 0))
+	      (ss-o (substring s n m))
+	      (ss-r (make-string  (- m n ) ?3 )))
+	  ;(message ss-o)
+	  (setf (substring s n m) ss-r)
+	  ;(message s)
+	  (let ((result
+		 (concat (substring s 0 m) (replace-latex-command-in-string (substring s m))) ))
+	    ;(message result)
+	    result))
+      (progn
+	;(message str)
+	str))))
+
+;; (defun grammer-Clear-all-verlay
+(defun grammar-sentence-check-only (start end)
+  (let (sentence word-pos-list word pos)
+    (setq word-pos-list 
+	  (grammar-process-line
+	   ;;(replace-regexp-in-string "\\\\\\(cite\\|label\\|ref\\){[^}]*}" "321"
+	   (replace-latex-command-in-string
+	    ;;(buffer-substring start end)
+	    (buffer-substring-no-properties start end)
+	    )))
+    (print word-pos-list)
+    ;; Clear all overlays that may have grammar-error-face.
+    (dolist (overlay (overlays-in start end))
+      (when (eq (overlay-get overlay 'face) 'grammar-error-face)
+	(delete-overlay overlay)))
+      ;; If something is wrong with the grammar, word-pos-list should
+      ;; contains N pairs of (word position).
+    (if (= (length word-pos-list) 1)
+	(message "Grammar %s" (car word-pos-list))
+      (message "Grammar error")
+      (while word-pos-list
+	(setq word (car word-pos-list)
+	      pos (string-to-number (cadr word-pos-list))
+	      word-pos-list (cddr word-pos-list))
+	(grammar-make-overlay (+ start pos)
+			      (+ start pos (length word))
+			      'grammar-error-face)
+	  ))))
+
+
+(defun ginger-region-recursive (start end)
+  (let ((str (replace-latex-command-in-string (buffer-substring-no-properties start end))))
+    (lexical-let* (;(str str) 
+		   (text str)(results nil)
+		   ;(result-str "")
+		   (start start) (end end)
+		   )
+    ;(print (buffer-substring-no-properties start end))
+    (request
+     ginger-end-point
+     :params `((lang . "US")
+               (clientVersion . "2.0")               
+	       (apiKey . "6ae0c3a0-afdc-4532-a810-82ded0054236")
+               (text . ,text))
+     :parser 'json-read
+     :success (function*
+               (lambda (&key data &allow-other-keys)
+                 (loop with elems = (assoc-default 'LightGingerTheTextResult data)
+                       with i = 0
+                       for elem across elems
+                       for from = (assoc-default 'From elem)
+                       for to   = (assoc-default 'To elem)
+                       for suggest = (assoc-default
+                                      'Text (aref (assoc-default 'Suggestions elem) 0))
+                       do
+                       (progn
+                         (when (< i from)
+                           (push (substring text i from) results))
+                         (push (propertize suggest
+                                           'face 
+					   'error
+					   ;'grammar-error-face
+					   ) results)
+			 ;(setq result-str (concat  (substring-no-properties text i from) result-str))
+                         (setq i (1+ to)))
+                       finally
+                       (when (< i (length text))
+                         (push (substring text i) results)))
+
+		 (print results)
+
+		 (let* ((result-list (reverse results))
+			(fixed-text-with-face (mapconcat 'identity (reverse results) ""))
+			(fixed-text (substring-no-properties fixed-text-with-face)))
+
+		   ;(ido-completing-read "select1:" (list "foo" "bar"))
+		   ;(ido-completing-read "select2:" (list text fixed-text))
+
+		   ;; (if (active-minibuffer-window)
+		   ;;     (select-window (active-minibuffer-window))
+		   ;;   (error "Minibuffer is not active"))
+
+		   ;(print fixed-text-with-face)
+		   ;(print fixed-text)
+		   ;(print text)
+		   ;(print (buffer-substring-no-properties start end))
+		   ;(message fixed-text-with-face)
+		   (if (;string=
+			string-equal
+			fixed-text text)
+		       (print "recurcall")
+		     ;; (print "compl")
+		     (progn
+		       (ispell-highlight-spelling-error-overlay start end t)
+		       (let ((selected-str
+			      (ido-completing-read "select:" (list fixed-text text))))
+		       ;(print selected-str)
+			 (setf (buffer-substring start end) selected-str)
+			     ;; (completing-read "Choose one: " '("foo" "bar" "baz"))
+			      ;;(ido-completing-read "select:" (list text fixed-text))
+		       )
+		     )
+		   ))))))))
+
+
+(defun grammar-buffer ()
+  "Check grammar buffer"
+  (interactive)
+  (let (start end)
+    ;(save-excursion
+      (backward-sentence)
+      (setq start (point))
+      (forward-sentence)
+      (setq end (point))
+      ;(ispell-highlight-spelling-error-overlay start end t)
+    ;(grammar-sentence-check-only start end)
+    ;(print (buffer-substring-no-properties start end))
+      ;(setf (buffer-substring start end) "tmp str")
+      (ginger-region-recursive start end)
+    )
+)
+
+
+;; (defun grammar-sentence-recur (p)
+;;   (let (start end)
+;;     (backward-sentence)
+;;     (setq start (point))
+;;     (forward-sentence)
+;;     (setq end (point))
+;;     (ispell-highlight-spelling-error-overlay start end t)
+;;     (grammar-sentence-check-only start end)
+
+;;     (ginger-string-continuation
+;;      (replace-latex-command-in-string
+;;       (lambda (str-error)
+;; 	(print str-error)	
+;; 	)    
+;;       (buffer-substring-no-properties start end))
+;;      )
+;;     (setf (buffer-substring start end)
+;; 	  (ido-completing-read
+;; 	   "select:"
+;; 	   (list (buffer-substring-no-properties start end)
+;; 		 "foo" "bar") ))
+;;   ;; (when (> end (+ start 10))
+;;   ;;   )
+;;       ;; Clear all overlays that may have grammar-error-face.
+;;     (dolist (overlay (overlays-in start end))
+;;       ;(when (eq (overlay-get overlay 'face) 'grammar-error-face)
+;; 	(delete-overlay overlay))
+;;     (goto-char (+ end 4))
+;;     ;(my-sentence-recur-sub (point))
+;;     ))
+;; )
+
+
+
 (defun grammar-check ()
   "Check grammar of the sentence before or at the current point."
-  (interactive)
+1  (interactive)
   (let (start end sentence word-pos-list word pos)
     (save-excursion
       (backward-sentence)
@@ -251,7 +433,12 @@ For example, if STRING is \"This person have two name.\", list
       (setq end (point)))
     (when (> end (+ start 10))
       (setq word-pos-list (grammar-process-line
-			   (buffer-substring start end)))
+			   ;(replace-regexp-in-string "\\\\\\(cite\\|label\\|ref\\){[^}]*}"  "321" 			   
+			    (replace-latex-command-in-string
+			     ;; (buffer-substring start end)
+			     (buffer-substring-no-properties start end)						     
+			     )
+			   ))
       ;; Clear all overlays that may have grammar-error-face.
       (dolist (overlay (overlays-in start end))
 	(when (eq (overlay-get overlay 'face) 'grammar-error-face)
@@ -268,7 +455,9 @@ For example, if STRING is \"This person have two name.\", list
 	  (grammar-make-overlay (+ start pos)
 				(+ start pos (length word))
 				'grammar-error-face)
-	  )))))
+	  ))
+      
+      )))
 
 (defun grammar-delay-commands ()
   "Install the standard set of Grammar delayed commands."
