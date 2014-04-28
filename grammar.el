@@ -467,7 +467,7 @@ For example, if STRING is \"This person have two name.\", list
 		       ;(ispell-highlight-spelling-error-overlay start end t)
 		       (let ((selected-str
 			      (ido-completing-read 
-			       "select:" 
+			       "Ctr-s:"
 			       ;(list fixed-text text)
 			       (mapcar
 				(lambda (s)
