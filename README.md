@@ -1,4 +1,4 @@
-Mix of Ginger grammar checker and linkgrammar
+Ginger grammar checker intafce with some utils
 =================
 Ginger grammar checker intafce
 
