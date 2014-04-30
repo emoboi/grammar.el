@@ -6,8 +6,8 @@
 
 INCDIRS = -I. -I/usr/local/include/link-grammar -I/usr/include/link-grammar
 objects := grammar.o
-testlogs =  test/grammar-str-util-test-el.log
-EMACS_LOAD_PATH = -L . -L ../emacs-request 
+testlogs =  test/grammar-test-el.log
+EMACS_LOAD_PATH = -L . -L ../emacs-request -L ../ht.el -L ~/.emacs.d/elpa/s-20131223.944/
 
 #all: $(objects) test
 all: $(objects) test clean

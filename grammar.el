@@ -253,32 +253,6 @@ For example, if STRING is \"This person have two name.\", list
     (overlay-put overlay 'grammar-overlay t)
     (overlay-put overlay 'face face)))
 
-;; (defun get-hash-keys (hashtable)
-;;   "Return all keys in hashtable."
-;;   (let (allkeys)
-;;     (maphash (lambda (kk vv) (setq allkeys (cons kk allkeys))) hashtable)
-;;     allkeys))
-
-;; (defun get-hash-values (hashtable)
-;;   "Return all values in HASHTABLE."
-;;   (let (allvals)
-;;     (maphash (lambda (kk vv) (setq allvals (cons vv allvals))) hashtable)
-;;     allvals))
-
-;; (defun hash-exists-p (key table)
-;;   (let ((novalue (make-symbol "<nil>")))
-;;     (not (equal (gethash key table novalue) novalue))))
-
-;; (defun hash-value-exists-p (value table)
-;;   (let ((key nil))
-;;     (maphash
-;;      (lambda (kk vv) 
-;;        (if (equal vv value) 
-;; 	   (if (equal kk nil) (setq t)
-;; 	     (setq key kk)) 
-;; 	 nil))
-;;      table)
-;;     key))
 
 (defun s-replace-not-regexp (from to s &optional result)
   (let(
@@ -293,11 +267,6 @@ For example, if STRING is \"This person have two name.\", list
 	  (mapconcat #'identity (reverse (cons s result)) "")
 	s))))
 
-;; (s-replace-not-regexp 
-;;  "90121470"  "\\cite{b}"
-;; "29838685 am a 26648151 in are 90121470.")
-
-
 (defun s-replace-not-regexp-all-ht! (tbl s) 
   (maphash
    (lambda (key value)  (setq s (s-replace-not-regexp  key value s)))
@@ -305,21 +274,7 @@ For example, if STRING is \"This person have two name.\", list
   s
   )
 
-;; (s-replace-not-regexp-all-ht!
-;;  (ht ( "90121470"  "\\cite{b}" )  ("26648151"   "\\cite{a}")  ("29838685"   "\\cite{a}"))
-;;  "29838685 am a 26648151 in are 90121470."
-;; )
 
-;; (defun make-new-num-str-key-with-length (table n str)
-;;   (let ((key0 (hash-value-exists-p str table)))
-;;     (if key0 key0      
-;;       (let ((key
-;; 	     (substring 
-;; 	      (format (concat "%0" (format "%d" n) "d") (random))
-;; 	      (- n) )))
-;; 	(if (hash-exists-p key table)
-;; 	    (make-new-num-str-key-with-length table n)
-;; 	  key)))))
 
 (defun replace-latex-command-in-string-with-replace-tabel (str tbl)
   ;(when tbl (setq tbl (make-hash-table :test #'equal)))
