@@ -1,29 +1,23 @@
 Mix of Ginger grammar checker and linkgrammar
 =================
-Mix of
+Ginger grammar checker intafce
 
 http://code.google.com/p/bcui-emacs/source/browse/#svn/trunk/grammar
 
-and
+custmized for Latex 
 
-https://gist.github.com/syohex/5457732
-
-also custmized for Latex 
-
-ido-completing-read  intaface is used
+and add intafce ( ido-completing-read) 
 
 # Install
 
-+ install my forked ht.el https://github.com/niitsuma/ht.el
++ install ht.el https://github.com/niitsuma/ht.el
+++  (dont use package.el for install this package)
 
 + install https://github.com/tkf/emacs-request
- (Never use package.el. That package buggy.)
+++  (dont use package.el for install this package)
 
-+ install linkgrammar , ispell.el json.el and s.el
-
-+ make
-
-+ cp grammer /usr/local/bin/
++ install ispell.el json.el and s.el 
+++  (can use package.el)
 
 + cp grammar.el [your elisp path]
 
