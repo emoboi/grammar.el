@@ -1,3 +1,5 @@
+;;; -*- coding: utf-8; lexical-binding: t -*-
+
 ;;; grammar.el --- Grammar checker for Emacs
 ;;
 ;; Copyright (C) 2010 Baoqiu Cui
@@ -37,8 +39,13 @@
 ;; mode in the current buffer.
 ;;
 
+(require 'ispell)
 (require 'request) ;; https://github.com/tkf/emacs-request
 (require 'json)
+;; (require 'ht) ;;my forked ht
+;; (require 's)
+
+
 (defvar ginger-end-point
   "http://services.gingersoftware.com/Ginger/correct/json/GingerTheText"  )
 
@@ -393,21 +400,29 @@ For example, if STRING is \"This person have two name.\", list
 	  ))))
 
 
-(defun ginger-region-recursive (start0 end0 replace-table0)
+;(defun ginger-region-recursive (start0 end0 replace-table0)
+(defun ginger-region-continuous (conti start0 end0 replace-table0)
   (let ((replaced
 	 (replace-latex-command-in-string-with-replace-tabel
 	 ;(replace-latex-command-in-string 
-	  (buffer-substring-no-properties start end)
+	  (buffer-substring-no-properties start0 end0)
 	  replace-table0
 	  )))
+
+    (print 1)
     ;(print replaced)
-    (lexical-let* (;(str str) 
-		   (text (car replaced))(results nil)
-		   ;(result-str "")
-		   (start start0) (end end0) (replace-table (cadr replaced))
-		   )
+    (lexical-let* 
+    ;(let* 
+     (;(str str) 
+      (cont conti)
+      (text (car replaced))(results nil)
+      ;;(result-str "")
+      (start start0) (end end0) (replace-table (cadr replaced))
+      )
     ;(print (buffer-substring-no-properties start end))
-      ;(print text)
+    ;(print text)
+    (print 2)
+
     (request
      ginger-end-point
      :params `((lang . "US")
@@ -415,7 +430,9 @@ For example, if STRING is \"This person have two name.\", list
 	       (apiKey . "6ae0c3a0-afdc-4532-a810-82ded0054236")
                (text . ,text))
      :parser 'json-read
-     :success (function*
+     :success (
+	       function*
+	       ;function
                (lambda (&key data &allow-other-keys)
                  (loop with elems = (assoc-default 'LightGingerTheTextResult data)
                        with i = 0
@@ -440,6 +457,7 @@ For example, if STRING is \"This person have two name.\", list
                          (push (substring text i) results)))
 
 		 ;(print results)
+		 (print 3)
 
 		 (let* ((result-list (reverse results))
 			(fixed-text-with-face (mapconcat 'identity (reverse results) ""))
@@ -457,6 +475,7 @@ For example, if STRING is \"This person have two name.\", list
 		   ;(print text)
 		   ;(print (buffer-substring-no-properties start end))
 		   ;(message fixed-text-with-face)
+		   (print 4)
 		   (when (not (;string=
 			       string-equal
 			       fixed-text text))
@@ -467,7 +486,7 @@ For example, if STRING is \"This person have two name.\", list
 		       ;(ispell-highlight-spelling-error-overlay start end t)
 		       (let ((selected-str
 			      (ido-completing-read 
-			       "Ctr-s:"
+			       "Select:Ctr-s :"
 			       ;(list fixed-text text)
 			       (mapcar
 				(lambda (s)
@@ -483,18 +502,25 @@ For example, if STRING is \"This person have two name.\", list
 				;;  text)
 			       )
 			       ))
-			 (print selected-str)
+			 (print 5)
+			 ;(print selected-str)
 			 (setf (buffer-substring start end) selected-str)
 			     ;; (completing-read "Choose one: " '("foo" "bar" "baz"))
 			      ;;(ido-completing-read "select:" (list text fixed-text))
 			 )
 		       )
 		     )
-		   (goto-char (+ end 4))
-		   (grammar-buffer)
+		   (print 6)
 
+		   ;; (goto-char (+ end 4))
+		   ;; (grammar-buffer)
+		   (funcall cont end)
+		   ;(conti)
+		   ;ginger-region-continuous
+		   (print 7)
 		   )))))))
 
+;;  AAA is AAA.
 
 (defun grammar-buffer ()
   "Check grammar buffer"
@@ -506,11 +532,17 @@ For example, if STRING is \"This person have two name.\", list
       (setq start (point))
       (forward-sentence)
       (setq end (point))
-      ;(ispell-highlight-spelling-error-overlay start end t)
-    ;(grammar-sentence-check-only start end)
-    ;(print (buffer-substring-no-properties start end))
-      ;(setf (buffer-substring start end) "tmp str")
-      (ginger-region-recursive start end replace-table)
+      ;;(ispell-highlight-spelling-error-overlay start end t)
+      (grammar-sentence-check-only start end)
+      ;;(print (buffer-substring-no-properties start end))
+      ;;(setf (buffer-substring start end) "tmp str")
+      ;(ginger-region-recursive start end replace-table)
+      (ginger-region-continuous
+       (lambda ( dummy)  
+	 (print "in cont")
+	 (goto-char (+ end 4)) 
+	 (grammar-buffer) )
+       start end replace-table)
     )
 )
 
