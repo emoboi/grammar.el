@@ -42,8 +42,8 @@
 (require 'ispell)
 (require 'request) ;; https://github.com/tkf/emacs-request
 (require 'json)
-;; (require 'ht) ;;my forked ht
-;; (require 's)
+(require 'ht) ;;my forked ht
+(require 's)
 
 
 (defvar ginger-end-point
@@ -253,40 +253,39 @@ For example, if STRING is \"This person have two name.\", list
     (overlay-put overlay 'grammar-overlay t)
     (overlay-put overlay 'face face)))
 
-(defun get-hash-keys (hashtable)
-  "Return all keys in hashtable."
-  (let (allkeys)
-    (maphash (lambda (kk vv) (setq allkeys (cons kk allkeys))) hashtable)
-    allkeys))
+;; (defun get-hash-keys (hashtable)
+;;   "Return all keys in hashtable."
+;;   (let (allkeys)
+;;     (maphash (lambda (kk vv) (setq allkeys (cons kk allkeys))) hashtable)
+;;     allkeys))
 
-(defun get-hash-values (hashtable)
-  "Return all values in HASHTABLE."
-  (let (allvals)
-    (maphash (lambda (kk vv) (setq allvals (cons vv allvals))) hashtable)
-    allvals))
+;; (defun get-hash-values (hashtable)
+;;   "Return all values in HASHTABLE."
+;;   (let (allvals)
+;;     (maphash (lambda (kk vv) (setq allvals (cons vv allvals))) hashtable)
+;;     allvals))
 
-(defun hash-exists-p (key table)
-  (let ((novalue (make-symbol "<nil>")))
-    (not (equal (gethash key table novalue) novalue))))
+;; (defun hash-exists-p (key table)
+;;   (let ((novalue (make-symbol "<nil>")))
+;;     (not (equal (gethash key table novalue) novalue))))
 
-(defun hash-value-exists-p (value table)
-  (let ((key nil))
-    (maphash
-     (lambda (kk vv) 
-       (if (equal vv value) 
-	   (if (equal kk nil) (setq t)
-	     (setq key kk)) 
-	 nil))
-     table)
-    key))
+;; (defun hash-value-exists-p (value table)
+;;   (let ((key nil))
+;;     (maphash
+;;      (lambda (kk vv) 
+;;        (if (equal vv value) 
+;; 	   (if (equal kk nil) (setq t)
+;; 	     (setq key kk)) 
+;; 	 nil))
+;;      table)
+;;     key))
 
-(defun my-replace-string (from to s &optional result)
-  (let
-      (;(s ;(substring str 0))
+(defun s-replace-not-regexp (from to s &optional result)
+  (let(
        (n (string-match from s)))
     (if n
 	(let ((m (match-end 0)))
-	  (my-replace-string
+	  (s-replace-not-regexp
 	   from to (substring s m)
 	   (cons to (cons (substring s 0 n) result))
 	   ))
@@ -294,25 +293,33 @@ For example, if STRING is \"This person have two name.\", list
 	  (mapconcat #'identity (reverse (cons s result)) "")
 	s))))
 
-(defun replace-string-all-hash-key-value (tbl s) 
-  (maphash 
-   (lambda (key value)
-     (setq s (my-replace-string key value s)))
+;; (s-replace-not-regexp 
+;;  "90121470"  "\\cite{b}"
+;; "29838685 am a 26648151 in are 90121470.")
+
+
+(defun s-replace-not-regexp-all-ht! (tbl s) 
+  (maphash
+   (lambda (key value)  (setq s (s-replace-not-regexp  key value s)))
    tbl)
   s
   )
 
+;; (s-replace-not-regexp-all-ht!
+;;  (ht ( "90121470"  "\\cite{b}" )  ("26648151"   "\\cite{a}")  ("29838685"   "\\cite{a}"))
+;;  "29838685 am a 26648151 in are 90121470."
+;; )
 
-(defun make-new-num-str-key-with-length (table n str)
-  (let ((key0 (hash-value-exists-p str table)))
-    (if key0 key0      
-      (let ((key
-	     (substring 
-	      (format (concat "%0" (format "%d" n) "d") (random))
-	      (- n) )))
-	(if (hash-exists-p key table)
-	    (make-new-num-str-key-with-length table n)
-	  key)))))
+;; (defun make-new-num-str-key-with-length (table n str)
+;;   (let ((key0 (hash-value-exists-p str table)))
+;;     (if key0 key0      
+;;       (let ((key
+;; 	     (substring 
+;; 	      (format (concat "%0" (format "%d" n) "d") (random))
+;; 	      (- n) )))
+;; 	(if (hash-exists-p key table)
+;; 	    (make-new-num-str-key-with-length table n)
+;; 	  key)))))
 
 (defun replace-latex-command-in-string-with-replace-tabel (str tbl)
   ;(when tbl (setq tbl (make-hash-table :test #'equal)))
@@ -324,7 +331,8 @@ For example, if STRING is \"This person have two name.\", list
 	      (ss-o (substring s n m))
 	      (ss-r
 	       ;(make-string  (- m n ) ?3 )
-	       (make-new-num-str-key-with-length tbl (- m n ) ss-o)
+	       ;(make-new-num-str-key-with-length tbl (- m n ) ss-o)
+	       (ht-gen-str-key tbl ss-o)
 	       ))
 	  (setf (gethash ss-r tbl) ss-o)
 	  ;(message ss-o)
@@ -352,23 +360,24 @@ For example, if STRING is \"This person have two name.\", list
 
 
 (defun replace-latex-command-in-string (str)
-  (let* 
-      ((s (substring str 0))
-       (n (string-match  "\\\\\\(cite\\|label\\|ref\\){[^}]*}"  s)))
-    (if n
-	(let* ((m (match-end 0))
-	      (ss-o (substring s n m))
-	      (ss-r (make-string  (- m n ) ?3 )))
-	  ;(message ss-o)
-	  (setf (substring s n m) ss-r)
-	  ;(message s)
-	  (let ((result
-		 (concat (substring s 0 m) (replace-latex-command-in-string (substring s m))) ))
-	    ;(message result)
-	    result))
-      (progn
-	;(message str)
-	str))))
+  (let ((replace-table (ht-create)))
+    (car (replace-latex-command-in-string-with-replace-tabel str replace-table ))))
+    ;;   ((s (substring str 0))
+    ;;    (n (string-match  "\\\\\\(cite\\|label\\|ref\\){[^}]*}"  s)))
+    ;; (if n
+    ;; 	(let* ((m (match-end 0))
+    ;; 	      (ss-o (substring s n m))
+    ;; 	      (ss-r (make-string  (- m n ) ?3 )))
+    ;; 	  ;(message ss-o)
+    ;; 	  (setf (substring s n m) ss-r)
+    ;; 	  ;(message s)
+    ;; 	  (let ((result
+    ;; 		 (concat (substring s 0 m) (replace-latex-command-in-string (substring s m))) ))
+    ;; 	    ;(message result)
+    ;; 	    result))
+    ;;   (progn
+    ;; 	;(message str)
+    ;; 	str))))
 
 ;; (defun grammer-Clear-all-verlay
 (defun grammar-sentence-check-only (start end)
@@ -459,10 +468,28 @@ For example, if STRING is \"This person have two name.\", list
 		 ;(print results)
 		 (print 3)
 
-		 (let* ((result-list (reverse results))
+		 (let* (
+			(result-list (reverse results))
 			(fixed-text-with-face (mapconcat 'identity (reverse results) ""))
-			(fixed-text (substring-no-properties fixed-text-with-face)))
-
+			(fixed-text (substring-no-properties fixed-text-with-face))
+			(candidate-bare-str-list
+			 (progn 
+			   (print 3.2)
+			   (list fixed-text text)))
+			(replace-alist 
+			 (progn 
+			   (print (list 3.4 candidate-bare-str-list ))
+			   (ht-to-alist replace-table)))
+			(candidate-list 
+			 (progn
+			   (print (list 3.6 replace-alist))
+			   (mapcar
+			    (lambda (s) 
+			      (if replace-alist 
+				  (s-replace-not-regexp-all-ht!
+				   replace-table s) s))
+			    candidate-bare-str-list )))
+			)
 		   ;(ido-completing-read "select1:" (list "foo" "bar"))
 		   ;(ido-completing-read "select2:" (list text fixed-text))
 
@@ -475,33 +502,47 @@ For example, if STRING is \"This person have two name.\", list
 		   ;(print text)
 		   ;(print (buffer-substring-no-properties start end))
 		   ;(message fixed-text-with-face)
-		   (print 4)
+		   (print (list 4 candidate-bare-str-list  candidate-list  replace-alist))
 		   (when (not (;string=
 			       string-equal
 			       fixed-text text))
 		       ;(print "recurcall")
 		     ;; (print "compl")
 		     (progn
+		       ;(print (list 4.5  fixed-text text (ht-to-alist replace-table )))
 		       ;(print "compl")
 		       ;(ispell-highlight-spelling-error-overlay start end t)
-		       (let ((selected-str
-			      (ido-completing-read 
-			       "Select:Ctr-s :"
-			       ;(list fixed-text text)
-			       (mapcar
-				(lambda (s)
-				  (replace-string-all-hash-key-value
-				   replace-table s))
-				(list fixed-text text))
-				   
-				;; (replace-string-all-hash-key-value
-				;;  replace-table
-				;;  fixed-text)
-				;; (replace-string-all-hash-key-value 
-				;;  replace-table
-				;;  text)
-			       )
-			       ))
+		       (let* (
+			      ;; (candidate-list
+			      ;;  (mapcar
+			      ;; 	(lambda (s) (if replace-alist (s-replace-all replace-alist s) s))
+			      ;; 	(list fixed-text text)))
+			      (selected-str
+			       (progn 
+				  (print (list 4.7  candidate-list ))
+				  (ido-completing-read 
+				   "Select:Ctr-s :" 
+				   candidate-list))))
+ 			       ;; ;(list fixed-text text)
+			       ;; (mapcar
+			       ;; 	(lambda (s)				  
+			       ;; 	  ;(replace-string-all-hash-key-value  replace-table s)
+			       ;; 	  (let 
+			       ;; 		;(replace-reverse-alist (ht-to-alist (ht-swap replace-table)))
+			       ;; 		(replace-reverse-alist (ht-to-alist replace-table))				
+			       ;; 	    (if replace-reverse-alist 
+			       ;; 		(s-replace-all replace-reverse-alist s)
+			       ;; 	      s))
+			       ;; 	  )
+			       ;; 	(list fixed-text text))				   
+			       ;; 	;; (replace-string-all-hash-key-value
+			       ;; 	;;  replace-table
+			       ;; 	;;  fixed-text)
+			       ;; 	;; (replace-string-all-hash-key-value 
+			       ;; 	;;  replace-table
+			       ;; 	;;  text)
+			       ;; )
+			       ;; ))
 			 (print 5)
 			 ;(print selected-str)
 			 (setf (buffer-substring start end) selected-str)
@@ -537,12 +578,14 @@ For example, if STRING is \"This person have two name.\", list
       ;;(print (buffer-substring-no-properties start end))
       ;;(setf (buffer-substring start end) "tmp str")
       ;(ginger-region-recursive start end replace-table)
+
       (ginger-region-continuous
        (lambda ( dummy)  
-	 (print "in cont")
-	 (goto-char (+ end 4)) 
-	 (grammar-buffer) )
+      	 (print "in cont")
+      	 (goto-char (+ end 4)) 
+      	 (grammar-buffer) )
        start end replace-table)
+
     )
 )
 
