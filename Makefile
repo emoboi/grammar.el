@@ -10,7 +10,7 @@ testlogs =  test/grammar-test-el.log
 EMACS_LOAD_PATH = -L . -L ../emacs-request -L ../ht.el -L ~/.emacs.d/elpa/s-20131223.944/
 
 #all: $(objects) test
-all: $(objects) test clean
+all: $(objects) 
 	g++ -g -llink-grammar -o grammar $(objects)
 
 grammar.o: grammar.cc

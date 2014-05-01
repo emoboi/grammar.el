@@ -27,5 +27,10 @@ used
 
 # Usage
 
+(require 'grammar)
+
 M-x grammar-buffer
 
+# Ref
+
+- ido-completing-read minimun example http://d.hatena.ne.jp/niitsuma/20080123/1398913970 
