@@ -253,5 +253,32 @@ Make sure this program can be located in your environment."
 )
 
 
+(defun grammar-sentence ()
+  "Check grammar buffer"
+  (interactive)
+  (let ((replace-table (make-hash-table :test #'equal))
+	start end)
+    ;(save-excursion
+      (backward-sentence)
+      (setq start (point))
+      (forward-sentence)
+      (setq end (point))
+      ;;(ispell-highlight-spelling-error-overlay start end t)
+      ;(grammar-sentence-check-only start end)
+      ;(ginger-region-recursive start end replace-table)
+
+      (ginger-region-continuous
+       (lambda ( dummy)  
+      	 ;(print "in cont")
+      	 (goto-char (+ end 4)) 
+      	 ;(grammar-buffer) 
+	 )
+       start end replace-table
+       )
+
+    )
+)
+
+
 
 (provide 'grammar)
